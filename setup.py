@@ -20,13 +20,13 @@ BASE_DEPENDENCIES = [
 os.chdir(os.path.normpath(BASEDIR))
 
 setup(
-    name='wf-3d-pose-tracking',
+    name='wf-pose-tracking-3d',
     packages=find_packages(),
     version=VERSION,
     include_package_data=True,
     description='Classes and methods for performing 3D pose tracking from 2D poses',
     long_description=open('README.md').read(),
-    url='https://github.com/WildflowerSchools/wf-3d-pose-tracking',
+    url='https://github.com/WildflowerSchools/wf-pose-tracking-3d',
     author='Theodore Quinn',
     author_email='ted.quinn@wildflowerschools.org',
     install_requires=BASE_DEPENDENCIES,

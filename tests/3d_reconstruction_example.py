@@ -1,4 +1,4 @@
-import 3d_pose_tracking
+import pose_tracking_3d
 import cv_utils
 import numpy as np
 import json

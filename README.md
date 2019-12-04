@@ -1,4 +1,4 @@
-# wf-3d-pose-tracking
+# wf-pose-tracking-3d
 
 Classes and methods for performing 3D pose tracking from 2D poses:
 
