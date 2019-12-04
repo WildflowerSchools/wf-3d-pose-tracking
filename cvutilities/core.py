@@ -1,5 +1,5 @@
-import cvutilities.camera_utilities
-import cvutilities.datetime_utilities
+import cv_utils
+import cv_datetime_utils
 import smc_kalman
 import boto3
 import networkx as nx # We use NetworkX graph structures to hold the 3D pose data
@@ -38,7 +38,7 @@ def generate_pose_2d_wildflower_s3_object_name(
 # names) from a Python datetime object
 def generate_wildflower_s3_datetime_strings(
     datetime):
-    datetime_native_utc_naive = cvutilities.datetime_utilities.convert_to_native_utc_naive(datetime)
+    datetime_native_utc_naive = cv_datetime_utils.convert_to_native_utc_naive(datetime)
     date_string = datetime_native_utc_naive.strftime('%Y-%m-%d')
     time_string = datetime_native_utc_naive.strftime('%H-%M-%S')
     return date_string, time_string
@@ -186,7 +186,7 @@ class Pose2D:
         all_points = self.keypoints
         valid_keypoints = self.valid_keypoints
         plottable_points = all_points[valid_keypoints]
-        cvutilities.camera_utilities.draw_2d_image_points(plottable_points)
+        cv_utils.draw_2d_image_points(plottable_points)
         for body_part_connector in body_part_connectors:
             body_part_from_index = body_part_connector[0]
             body_part_to_index = body_part_connector[1]
@@ -204,7 +204,7 @@ class Pose2D:
         pose_tag = None,
         image_size=[1296, 972]):
         self.draw()
-        cvutilities.camera_utilities.format_2d_image_plot(image_size)
+        cv_utils.format_2d_image_plot(image_size)
         plt.show()
 
 # Class to represent a collection of 2D poses, either a set of poses (as from a
@@ -296,7 +296,7 @@ class Poses2D:
             camera_name,
             datetime)
         if fetch_source_image:
-            source_images = [cvutilities.camera_utilities.fetch_image_from_wildflower_s3(
+            source_images = [cv_utils.fetch_image_from_wildflower_s3(
                 classroom_name,
                 camera_name,
                 datetime)]
@@ -333,7 +333,7 @@ class Poses2D:
         if fetch_source_images:
             source_images = []
             for camera_name in camera_names:
-                source_image = cvutilities.camera_utilities.fetch_image_from_wildflower_s3(
+                source_image = cv_utils.fetch_image_from_wildflower_s3(
                     classroom_name,
                     camera_name,
                     datetime)
@@ -415,7 +415,7 @@ class Poses2D:
         for camera_index in range(num_cameras):
             if self.source_images is not None:
                 source_image = self.source_images[camera_index]
-                cvutilities.camera_utilities.draw_background_image(source_image)
+                cv_utils.draw_background_image(source_image)
                 current_image_size = np.array([
                     source_image.shape[1],
                     source_image.shape[0]])
@@ -435,7 +435,7 @@ class Poses2D:
                 centroid = np.mean(plottable_points, 0)
                 if centroid[0] > 0 and centroid[0] < current_image_size[0] and centroid[1] > 0 and centroid[1] < current_image_size[1]:
                     plt.text(centroid[0], centroid[1], tag)
-            cvutilities.camera_utilities.format_2d_image_plot(current_image_size)
+            cv_utils.format_2d_image_plot(current_image_size)
             plt.show()
 
 # Class to represent a single 3D pose
@@ -521,15 +521,15 @@ class Pose3D:
         image_points_a, image_points_b, common_keypoint_positions_mask = extract_common_keypoints(
             pose_2d_a,
             pose_2d_b)
-        image_points_a_distortion_removed = cvutilities.camera_utilities.undistort_points(
+        image_points_a_distortion_removed = cv_utils.undistort_points(
             image_points_a,
             camera_matrix,
             distortion_coefficients)
-        image_points_b_distortion_removed = cvutilities.camera_utilities.undistort_points(
+        image_points_b_distortion_removed = cv_utils.undistort_points(
             image_points_b,
             camera_matrix,
             distortion_coefficients)
-        object_points = cvutilities.camera_utilities.reconstruct_object_points_from_camera_poses(
+        object_points = cv_utils.reconstruct_object_points_from_camera_poses(
             image_points_a_distortion_removed,
             image_points_b_distortion_removed,
             camera_matrix,
@@ -537,13 +537,13 @@ class Pose3D:
             translation_vector_a,
             rotation_vector_b,
             translation_vector_b)
-        image_points_a_reconstructed = cvutilities.camera_utilities.project_points(
+        image_points_a_reconstructed = cv_utils.project_points(
             object_points,
             rotation_vector_a,
             translation_vector_a,
             camera_matrix,
             distortion_coefficients)
-        image_points_b_reconstructed = cvutilities.camera_utilities.project_points(
+        image_points_b_reconstructed = cv_utils.project_points(
             object_points,
             rotation_vector_b,
             translation_vector_b,
@@ -606,7 +606,7 @@ class Pose3D:
     def to_pose_2d(
         self,
         camera):
-        keypoints_2d = cvutilities.camera_utilities.project_points(
+        keypoints_2d = cv_utils.project_points(
             self.keypoints,
             camera['rotation_vector'],
             camera['translation_vector'],
@@ -630,7 +630,7 @@ class Pose3D:
     # chart
     def draw_topdown(self):
         plottable_points = self.keypoints[self.valid_keypoints]
-        cvutilities.camera_utilities.draw_3d_object_points_topdown(plottable_points)
+        cv_utils.draw_3d_object_points_topdown(plottable_points)
 
     # Plot a pose onto a chart representing a top-down view of the room. Calls
     # the drawing function above, adds formating, and shows the plot
@@ -638,7 +638,7 @@ class Pose3D:
         self,
         room_corners = None):
         self.draw_topdown()
-        cvutilities.camera_utilities.format_3d_topdown_plot(room_corners)
+        cv_utils.format_3d_topdown_plot(room_corners)
         plt.show()
 
 # Class to represent a collection of 3D poses, either a set of poses over time
@@ -832,7 +832,7 @@ class Poses3D:
                     plottable_points = pose_3d.keypoints[pose_3d.valid_keypoints]
                     centroid = np.mean(plottable_points[:, :2], 0)
                     plt.text(centroid[0], centroid[1], pose_3d.tag)
-            cvutilities.camera_utilities.format_3d_topdown_plot(room_corners)
+            cv_utils.format_3d_topdown_plot(room_corners)
             plt.show()
 
 # Class to represent a collection of 3D poses reconstructed from 2D poses across
