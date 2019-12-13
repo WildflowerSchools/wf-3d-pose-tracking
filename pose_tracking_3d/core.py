@@ -48,51 +48,57 @@ def generate_wildflower_s3_datetime_strings(
 # point. The parameters below correspond to the OpenPose output that we've been
 # generating but the newest OpenPose version changes these (more body parts,
 # 'pose_keypoints_2d' instead of 'pose_keypoints', etc.)
+
+# 12/13/2019: The following parameters have been updated/added to include 
+# functionality for Alpha Pose. Class method functions have also been added to 
+# accomodate the slightly different format of the json files output from Alpha 
+# Pose (i.e. Poses2D.from_alphapose_json_file).The points made in the previous 
+# comment still stand. 
+
 openpose_people_list_name = 'people'
 openpose_keypoint_vector_name = 'pose_keypoints'
-num_body_parts = 18
+alphapose_keypoint_vector_name = 'keypoints'
+num_body_parts = 17
 body_part_long_names = [
-    "Nose",
-    "Neck",
-    "RShoulder",
-    "RElbow",
-    "RWrist",
-    "LShoulder",
-    "LElbow",
-    "LWrist",
-    "RHip",
-    "RKnee",
-    "RAnkle",
-    "LHip",
-    "LKnee",
-    "LAnkle",
-    "REye",
-    "LEye",
-    "REar",
-    "LEar"]
+    'Nose',
+    'LEye',
+    'REye',
+    'LEar',
+    'REar',
+    'LShoulder',
+    'RShoulder',
+    'LElbow',
+    'RElbow',
+    'LWrist',
+    'RWrist',
+    'LHip',
+    'RHip',
+    'LKnee',
+    'RKnee',
+    'LAnkle',
+    'RAnkle']
 body_part_connectors = [
-    [0, 1],
-    [1, 2],
-    [2, 3],
-    [3, 4],
-    [1, 5],
-    [5, 6],
-    [6, 7],
-    [1, 8],
-    [8, 9],
-    [9, 10],
-    [1, 11],
-    [11, 12],
-    [12, 13],
-    [0, 14],
-    [14, 16],
-    [0, 15],
-    [15, 17]]
+    [0,1],
+    [0,2],  
+    [1,3],
+    [2,4],
+    [5,6],
+    [5,7],
+    [7,9],
+    [6,8],
+    [8,10],
+    [11,12],
+    [11,13],
+    [13,15],
+    [12,14],
+    [14,16],
+    [6,12],
+    [5,11]]   
 
 # Define some subsets of indices that we will use when calculating anchor points
-neck_index = 1
-shoulder_indices = [2, 5]
-head_and_torso_indices = [0, 1, 2, 5, 8, 11, 14 , 15, 16, 17]
+neck_index = None
+shoulder_indices = [5, 6]
+head_and_torso_indices = [0, 1, 2, 3, 4, 11, 12]
 
 # Specify time unit when unitless time value is needed (e.g., in Kalman filter)
 time_unit = np.timedelta64(1, 's')
@@ -143,6 +149,25 @@ class Pose2D:
             confidence_scores,
             valid_keypoints,
             timestamp = timestamp)
+    # Pull the pose data from a dictionary with the same structure as the
+    # correponding AlphaPose output JSON string for a single person
+    @classmethod
+    def from_alphapose_person_json_data(
+        cls,
+        json_data,
+        timestamp = None):
+        keypoint_vector = np.asarray(json_data[alphapose_keypoint_vector_name])
+        if keypoint_vector.size != num_body_parts*3:
+            raise ValueError('AlphaPose keypoint vector does not appear to be of size {}*3'.format(num_body_parts))
+        keypoint_array = keypoint_vector.reshape((num_body_parts, 3))
+        keypoints = keypoint_array[:, :2]
+        confidence_scores = keypoint_array[:, 2]
+        valid_keypoints = np.not_equal(confidence_scores, 0.0)
+        return cls(
+            keypoints,
+            confidence_scores,
+            valid_keypoints,
+            timestamp = timestamp)
 
     # Pull the pose data from an OpenPose output JSON string
     @classmethod
@@ -152,6 +177,17 @@ class Pose2D:
         timestamp = None):
         json_data = json.loads(json_string)
         return cls.from_openpose_person_json_data(
+            json_data,
+            timestamp)
+
+    # Pull the pose data from an AlphaPose output JSON string
+    @classmethod
+    def from_alphapose_person_json_string(
+        cls,
+        json_string,
+        timestamp = None):
+        json_data = json.loads(json_string)
+        return cls.from_alphapose_person_json_data(
             json_data,
             timestamp)
 
@@ -233,6 +269,19 @@ class Poses2D:
         return cls(
             pose_2d_list_list,
             source_images)
+    # Pull the pose data for a single camera from a dictionary with the same
+    # structure as the correponding AlphaPose output JSON file for a single image
+    @classmethod
+    def from_alphapose_output_json_data(
+        cls,
+        json_data,
+        source_images = None,
+        timestamp = None):
+        #people_json_data = json_data[alphapose_people_list_name]
+        pose_2d_list_list = [[Pose2D.from_alphapose_person_json_data(person_json_data, timestamp) for person_json_data in json_data]]
+        return cls(
+            pose_2d_list_list,
+            source_images)
 
     # Pull the pose data for a single camera from a string containing the
     # contents of an OpenPose output JSON file for a single image
@@ -262,6 +311,20 @@ class Poses2D:
             json_data,
             source_images,
             timestamp)
+    # Pull the pose data for a single camera from a local AlphaPose output JSON
+    # file
+    @classmethod
+    def from_alphapose_output_json_file(
+        cls,
+        json_file_path,
+        source_images = None,
+        timestamp = None):
+        with open(json_file_path) as json_file:
+            json_data = json.load(json_file)
+        return cls.from_alphapose_output_json_data(
+            json_data,
+            source_images,
+            timestamp)
 
     # Pull the pose data for a single camera from an OpenPose output JSON file
     # stored on S3 and specified by S3 bucket and object names
@@ -280,6 +343,22 @@ class Poses2D:
             source_images,
             timestamp)
 
+    # Pull the pose data for a single camera from an AlphaPose output JSON file
+    # stored on S3 and specified by S3 bucket and object names
+    @classmethod
+    def from_alphapose_output_s3_object(
+        cls,
+        s3_bucket_name,
+        s3_object_name,
+        source_images = None,
+        timestamp = None):
+        s3_object = boto3.resource('s3').Object(s3_bucket_name, s3_object_name)
+        s3_object_content = s3_object.get()['Body'].read().decode('utf-8')
+        json_data = json.loads(s3_object_content)
+        return cls.from_alphapose_output_json_data(
+            json_data,
+            source_images,
+            timestamp)
     # Pull the pose data for a single camera from an OpenPose output JSON file
     # stored on S3 and specified by Wildflower classroom name, camera name, and
     # a Python datetime object
@@ -307,12 +386,38 @@ class Poses2D:
             s3_object_name,
             source_images,
             timestamp = datetime)
-
+    # Pull the pose data for a single camera from an AlphaPose output JSON file
+    # stored on S3 and specified by Wildflower classroom name, camera name, and
+    # a Python datetime object
+    @classmethod
+    def from_alphapose_output_wildflower_s3(
+        cls,
+        classroom_name,
+        camera_name,
+        datetime,
+        fetch_source_image = False):
+        s3_bucket_name = classroom_data_wildflower_s3_bucket_name
+        s3_object_name = generate_pose_2d_wildflower_s3_object_name(
+            classroom_name,
+            camera_name,
+            datetime)
+        if fetch_source_image:
+            source_images = [cv_utils.fetch_image_from_wildflower_s3(
+                classroom_name,
+                camera_name,
+                datetime)]
+        else:
+            source_images = None
+        return cls.from_alphapose_output_s3_object(
+            s3_bucket_name,
+            s3_object_name,
+            source_images,
+            timestamp = datetime)
     # Pull the pose data for multiple cameras at a single moment in time from a
     # set of OpenPose output JSON files stored on S3 and specified by Wildflower
     # classroom name, a list of camera names, and a Python datetime object
     @classmethod
-    def from_openpose_timestep_wildflower_s3(
+    def from_alphapose_timestep_wildflower_s3(
         cls,
         classroom_name,
         camera_names,
@@ -325,7 +430,7 @@ class Poses2D:
                 classroom_name,
                 camera_name,
                 datetime)
-            camera = Poses2D.from_openpose_output_s3_object(
+            camera = Poses2D.from_alphapose_output_s3_object(
                 s3_bucket_name,
                 s3_object_name,
                 timestamp = datetime)
